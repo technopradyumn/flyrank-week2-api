@@ -9,7 +9,7 @@ Data lives in-memory — no database needed. Interactive documentation is availa
 
 ```bash
 # 1. Clone and enter the repo
-git clone <your-repo-url>
+git clone https://github.com/technopradyumn/flyrank-week2-api
 cd FlyRank
 
 # 2. Install dependencies
