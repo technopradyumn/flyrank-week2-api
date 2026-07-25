@@ -1,0 +1,15 @@
+Build a REST API in Python using FastAPI. It should manage a to-do list stored only in-memory (a Python list — no database).
+
+The API must have exactly these five endpoints:
+
+1. GET /tasks — returns all tasks as a JSON array
+2. GET /tasks/{id} — returns one task by integer id; if not found return status 404 with body {"error": "Task {id} not found"}
+3. POST /tasks — creates a task from a JSON body with a required 'title' field. Returns 201 on success with the created task. If title is missing or empty return 400 with body {"error": "title is required and cannot be empty"}
+4. PUT /tasks/{id} — updates title and/or done field from the request body. Returns 200 with the updated task. Return 404 for unknown id (same format). Return 400 if the body contains neither title nor done.
+5. DELETE /tasks/{id} — removes the task. Returns 204 No Content with an empty body (not null, not {}, just no content). Returns 404 for unknown id.
+
+Each task object has exactly three fields: id (sequential integer starting at 1), title (string), done (boolean, default false).
+
+Pre-fill the in-memory list with 3 example tasks.
+
+Use Pydantic models for request bodies. All error responses must use the JSON shape {"error": "..."} — do NOT use FastAPI's default {"detail": "..."} format.
