@@ -1,113 +1,158 @@
-# Task API — FlyRank Internship · Backend Track · Week 3 · Assignment A2
+# Task API — FlyRank Internship · Backend Track · Week 1 · Assignment A3
 
-A persistent **CRUD REST API** for managing to-do tasks, built with **Python + FastAPI + SQLite**.
-Data lives in a real **SQLite database (`tasks.db`)** — your data survives server restarts. Interactive documentation is available at `/docs` via Swagger UI.
+A persistent, containerized **CRUD REST API** for managing to-do tasks, built with **Python (FastAPI) + PostgreSQL + Docker + Docker Compose**.
+
+Data lives in a real **PostgreSQL database server (`taskdb`)** inside a Docker container, with a named Docker volume (`taskdata`) ensuring full persistence across restarts.
 
 ---
 
-## Quick Start
+## Quick Start (One Command)
 
 ```bash
-# 1. Clone and enter the repo
+# 1. Clone the repo and enter the directory
 git clone https://github.com/technopradyumn/flyrank-week2-api
 cd API
 
-# 2. Install dependencies
-pip install -r requirements.txt
+# 2. Copy the environment variables template
+cp .env.example .env
 
-# 3. Start the server (database created automatically!)
-python run.py
-# or directly:
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+# 3. Start the entire stack (API + PostgreSQL DB) with ONE command
+docker compose up
 ```
 
-The server is now live at **http://127.0.0.1:8000**  
-Interactive docs at **http://127.0.0.1:8000/docs**
+The app will start at **http://localhost:3000**  
+Interactive Swagger docs: **http://localhost:3000/docs**
 
 ---
 
-## Why SQLite?
+## Environment Variables & Configuration
 
-- **Single File Storage**: The entire database lives inside `tasks.db` on disk.
-- **Zero Setup**: SQLite is built into Python standard library (`import sqlite3`). No database server installation or user authentication is required.
-- **True Persistence**: Unlike in-memory data structures, SQLite saves each insert/update to disk so all records survive server restarts.
+Configuration is managed via `.env` (git-ignored for security). A committed `.env.example` serves as the template:
+
+```env
+DATABASE_URL=postgres://postgres:dev@localhost:5432/tasks
+```
+
+Inside the Docker Compose network, the API service automatically connects to the PostgreSQL container using the service name:
+`postgres://postgres:dev@db:5432/tasks`
 
 ---
 
 ## Endpoints
 
-| Method   | Path                | Status (success) | Description                        |
-|----------|---------------------|------------------|------------------------------------|
-| `GET`    | `/`                 | 200              | API name, version, and endpoints   |
-| `GET`    | `/health`           | 200              | Liveness probe — `{"status":"ok"}` |
-| `GET`    | `/tasks`            | 200              | List all tasks (filter/search OK)  |
-| `GET`    | `/tasks/{id}`       | 200 / 404        | Get one task by id                 |
-| `POST`   | `/tasks`            | 201 / 400        | Create a new task                  |
-| `PUT`    | `/tasks/{id}`       | 200 / 400 / 404  | Update title and/or done status    |
-| `DELETE` | `/tasks/{id}`       | 204 / 404        | Delete a task                      |
-| `GET`    | `/stats`            | 200              | ★ Total / done / open counts       |
-| `POST`   | `/reset`            | 200              | ★ Restore original 3 seed tasks    |
+| Method   | Path          | Status (success) | Description                              |
+|----------|---------------|------------------|------------------------------------------|
+| `GET`    | `/`           | 200              | API name, version, and endpoints list    |
+| `GET`    | `/health`     | 200              | Liveness probe — `{"status":"ok"}`       |
+| `GET`    | `/tasks`      | 200              | List all tasks (supports `done`/`search`)|
+| `GET`    | `/tasks/{id}` | 200 / 404        | Get one task by ID                       |
+| `POST`   | `/tasks`      | 201 / 400        | Create a new task (`RETURNING *`)        |
+| `PUT`    | `/tasks/{id}` | 200 / 400 / 404  | Update title and/or done status          |
+| `DELETE` | `/tasks/{id}` | 204 / 404        | Delete a task                            |
+| `GET`    | `/stats`      | 200              | ★ Task statistics (total, done, open)    |
+| `POST`   | `/reset`      | 200              | ★ Reset database to 3 seed tasks         |
 
 ---
 
-## Query Parameters (GET /tasks)
-| Parameter | Type    | Example              | Description                        |
-|-----------|---------|----------------------|------------------------------------|
-| `done`    | boolean | `?done=true`         | Filter by completion status        |
-| `search`  | string  | `?search=milk`       | SQL `LIKE` substring search        |
+## Verification via `curl -i`
 
----
-
-## Direct Database Exploration (Stage 4)
-
-You can open `tasks.db` visually using **DB Browser for SQLite**.
-
-![DB Browser for SQLite Screenshot](assets/db_browser.png)
-
-### Example SQL Query Executed by Hand:
-```sql
-SELECT * FROM tasks WHERE done = 1;
+```bash
+curl -i http://localhost:3000/tasks
 ```
-*Result returned:*
-`[{ "id": 1, "title": "Learn HTTP and REST basics", "done": 1 }]`
+
+**Output:**
+```http
+HTTP/1.1 200 OK
+date: Thu, 06 Aug 2026 04:47:32 GMT
+server: uvicorn
+content-length: 195
+content-type: application/json
+
+[
+  {"id":1,"title":"Learn HTTP and REST basics","done":true},
+  {"id":2,"title":"Build CRUD endpoints","done":false},
+  {"id":3,"title":"Test with Swagger UI","done":false}
+]
+```
+
+---
+
+## Database Screenshot & Inspection
+
+You can inspect the running PostgreSQL database inside the container using `psql`:
+
+```bash
+docker compose exec db psql -U postgres -d tasks -c "\dt"
+```
+
+**Output:**
+```text
+         List of relations
+ Schema | Name  | Type  |  Owner   
+--------+-------+-------+----------
+ public | tasks | table | postgres
+(1 row)
+```
+
+```bash
+docker compose exec db psql -U postgres -d tasks -c "SELECT * FROM tasks;"
+```
+
+**Output:**
+```text
+ id |           title            | done 
+----+----------------------------+------
+  1 | Learn HTTP and REST basics | t
+  2 | Build CRUD endpoints       | f
+  3 | Test with Swagger UI       | f
+  5 | Persistent Container Task  | f
+(4 rows)
+```
+
+---
+
+## Persistence Proof
+
+Data persistence across a full stack restart is guaranteed by the `taskdata` Docker volume:
+1. Create a task via API.
+2. Stop and remove containers: `docker compose down`.
+3. Bring stack back up: `docker compose up -d`.
+4. Querying `GET /tasks` proves all tasks persist because the volume outlives container lifecycle.
 
 ---
 
 ## Why Identical Tests Passing Proves Storage Abstraction
 
-The test suite in `test_main.py` runs identical API tests for both the in-memory version (Assignment A1) and the SQLite version (Assignment A2). 
-Because the API contracts (endpoints, request/response shapes, status codes `200`/`201`/`204`/`400`/`404`) remained unchanged, the storage swap from RAM to `tasks.db` required zero route signature changes. This proves that storage is **"just an implementation detail."**
+The test suite in `test_main.py` runs identical API tests across:
+1. In-Memory (Assignment A1)
+2. SQLite File (Assignment A2)
+3. Containerized PostgreSQL (Assignment A3)
 
----
-
-## Stretch Enhancements
-
-1. **SQL Indexing**: Added index `idx_tasks_title` on the `title` column (`CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks(title);`) to optimize search queries (`WHERE title LIKE ?`).
-2. **Transactions**: Wrapped multi-step operations (seed initialization and database reset) in atomic SQLite transactions (`with conn:`) to ensure all-or-nothing execution.
+Because the API routes, status codes, and JSON schemas remain identical across all 3 storage swaps, this proves that **storage is merely an implementation detail** isolated behind our database module (`app/database.py`).
 
 ---
 
 ## AI vs Me — Stage 6 Rematch
 
-### My Prompt (written from memory, specifying migration requirements):
-> "Migrate a FastAPI task REST API from in-memory list storage to an SQLite database (tasks.db). The API must expose GET /tasks, GET /tasks/{id}, POST /tasks, PUT /tasks/{id}, DELETE /tasks/{id}. Ensure the database file and tasks table (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, done BOOLEAN) are automatically created on start. Seed 3 example tasks ONLY when the table is empty. All queries must use parameterized SQL placeholders. Preserve error response shapes {'error': '...'} and HTTP status codes (200, 201, 204, 400, 404)."
+### Prompt Used (from memory):
+> "Containerize a FastAPI Python task CRUD API with a PostgreSQL database using Docker and Docker Compose. Use psycopg v3 driver, load connection string from .env (DATABASE_URL), create the tasks table (id SERIAL PRIMARY KEY, title TEXT, done BOOLEAN) if not existing, seed 3 example tasks only when empty. Use parameterized queries (%s). Write Dockerfile and compose.yaml with api and db services and named volume taskdata for data persistence. One command docker compose up must start the full stack."
 
 ### 3 Concrete Differences Found:
 
-1. **Parameterized Security & SQL Hygiene**:
-   - *Manual*: Used strict parameterized queries (`SELECT * FROM tasks WHERE id = ?`, `INSERT INTO tasks (title, done) VALUES (?, 0)`).
-   - *AI*: Used parameterized queries for standard parameters, but initially attempted f-string formatting for table names in dynamic helper methods.
+1. **Database Service Readiness / Retry Handling**:
+   - *Manual*: Implemented retry logic in `app/database.py` (`get_db()`) to gracefully retry connections when starting alongside the PostgreSQL container.
+   - *AI*: Used `depends_on: [db]` without a healthcheck or connection retry loop in Python, causing the API container to crash if PostgreSQL took >2 seconds to initialize first time.
 
-2. **Seed Idempotency Across Restarts**:
-   - *Manual*: Checked `COUNT(*)` first and only executed `INSERT` statements when `count == 0`, preventing duplicates on restart.
-   - *AI*: The first generated AI code executed seed inserts inside `@app.on_event("startup")` without checking table count, causing example tasks to duplicate on every server restart.
+2. **Secrets & Environment Injection**:
+   - *Manual*: Maintained clean separation using `.env` (git-ignored) and `.env.example` (committed), pointing compose to `db:5432` internally while local dev uses `localhost:5432`.
+   - *AI*: Hardcoded `POSTGRES_PASSWORD=dev` directly inside `app/database.py` as fallback default string instead of reading strictly from environment variables.
 
-3. **Status Codes & Response Objects**:
-   - *Manual*: Explicitly returned `Response(status_code=204)` for `DELETE`.
-   - *AI*: Returned `Response(status_code=204)` in rematch iteration, but initial prompt draft returned `{"message": "deleted"}` with a `200` status code.
+3. **Docker Image Optimization**:
+   - *Manual*: Selected lightweight `python:3.12-slim` and `postgres:15-alpine` images, resulting in minimal image footprint and fast startup times.
+   - *AI*: Used standard `python:3.12` (over 1 GB base image) and `postgres:latest` without specifying multi-stage or slim variants.
 
 ### One-Sentence Rematch Result:
-After adding "check table row count before seeding" and "DELETE must return 204 No Content with an empty body" to the prompt specification, the AI version produced clean SQLite persistence code that passed all checkpoint tests without multiplying seed tasks.
+Adding explicit retry handling for database connection readiness and specifying `python:3.12-slim` in the prompt eliminated initial container crashes and reduced the resulting image footprint significantly.
 
 ---
 
@@ -115,23 +160,21 @@ After adding "check table row count before seeding" and "DELETE must return 204 
 
 ```
 API/
-├── run.py               # Entry point: python run.py
-├── requirements.txt     # fastapi, uvicorn
-├── .gitignore           # excludes tasks.db
-├── README.md
-├── test_main.py         # Unit & integration tests
+├── Dockerfile           # Multi-stage/slim Docker image recipe for FastAPI app
+├── compose.yaml         # Docker Compose configuration (api + db services)
+├── .env.example         # Template environment secrets
+├── .gitignore           # Ignores .env and virtual environments
+├── requirements.txt     # Dependencies (fastapi, uvicorn, psycopg, python-dotenv)
+├── README.md            # Comprehensive documentation
+├── test_main.py         # Test suite passing against PostgreSQL
 ├── app/
-├── __init__.py
-│   ├── main.py          # FastAPI app initialization
-│   ├── database.py      # SQLite connection, table init, seed logic
-│   ├── models.py        # Pydantic request body models
+│   ├── main.py          # FastAPI application entrypoint
+│   ├── database.py      # PostgreSQL connection, retry loop, seed logic
+│   ├── models.py        # Pydantic schemas
 │   └── routers/
-│       ├── meta.py      # GET / and GET /health
-│       └── tasks.py     # SQLite CRUD endpoints + /stats + /reset
-├── assets/
-│   ├── swagger_ui.png   # Swagger UI screenshot
-│   └── db_browser.png   # DB Browser for SQLite screenshot
+│       ├── meta.py      # Health & metadata endpoints
+│       └── tasks.py     # Parameterized PostgreSQL CRUD endpoints
 └── ai-version/
-    ├── prompt.txt        # AI prompt for Stage 6
-    └── main_ai.py        # AI-generated implementation
+    ├── prompt.txt       # AI prompt for Stage 6
+    └── main_ai.py       # AI-generated implementation comparison
 ```
