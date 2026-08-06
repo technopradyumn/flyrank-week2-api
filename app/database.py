@@ -1,4 +1,5 @@
 import os
+import time
 import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
@@ -14,8 +15,16 @@ SEED_TASKS = [
 ]
 
 def get_db():
-    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
-    return conn
+    retries = 10
+    while retries > 0:
+        try:
+            conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+            return conn
+        except psycopg.OperationalError:
+            retries -= 1
+            if retries == 0:
+                raise
+            time.sleep(1)
 
 def init_db():
     conn = get_db()
