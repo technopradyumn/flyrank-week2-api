@@ -1,14 +1,1 @@
-Migrate a FastAPI task REST API from in-memory list storage to an SQLite database (tasks.db).
-
-The API must expose:
-1. GET /tasks - List all tasks from SQLite.
-2. GET /tasks/{id} - Get one task from SQLite by integer id (return 404 {"error": "Task {id} not found"} if missing).
-3. POST /tasks - Create task in SQLite with title (return 201 Created with task, 400 {"error": "title is required and cannot be empty"} if missing/empty title).
-4. PUT /tasks/{id} - Update task title/done in SQLite (return 200 OK with updated task, 404 if missing, 400 if body missing both title and done).
-5. DELETE /tasks/{id} - Delete task from SQLite (return 204 No Content with empty body, 404 if missing).
-
-Requirements:
-- SQLite table tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT 0).
-- Automatically create tasks.db and tasks table if missing on server startup.
-- Seed 3 example tasks ONLY when table row count is 0 (count before inserting so tasks don't multiply on server restart).
-- Always use parameterized SQL placeholders (?) for queries to prevent SQL injection.
+Containerize a FastAPI Python task CRUD API with a PostgreSQL database using Docker and Docker Compose. Use psycopg v3 driver, load connection string from .env (DATABASE_URL), create the tasks table (id SERIAL PRIMARY KEY, title TEXT, done BOOLEAN) if not existing, seed 3 example tasks only when empty. Use parameterized queries (%s). Write Dockerfile and compose.yaml with api and db services and named volume taskdata for data persistence. One command docker compose up must start the full stack.
