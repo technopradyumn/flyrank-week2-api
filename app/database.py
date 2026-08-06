@@ -1,7 +1,11 @@
-import sqlite3
 import os
+import psycopg
+from psycopg.rows import dict_row
+from dotenv import load_dotenv
 
-DB_FILE = os.getenv("TASKS_DB", "tasks.db")
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://postgres:dev@localhost:5432/tasks")
 
 SEED_TASKS = [
     {"title": "Learn HTTP and REST basics", "done": True},
@@ -10,44 +14,43 @@ SEED_TASKS = [
 ]
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     return conn
 
 def init_db():
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            done BOOLEAN NOT NULL DEFAULT 0
-        );
-    """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks(title);")
-    
-    cursor.execute("SELECT COUNT(*) FROM tasks;")
-    count = cursor.fetchone()[0]
-    
-    if count == 0:
-        with conn:
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                done BOOLEAN NOT NULL DEFAULT FALSE
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks(title);")
+        
+        cursor.execute("SELECT COUNT(*) FROM tasks;")
+        count = cursor.fetchone()["count"]
+        
+        if count == 0:
             for task in SEED_TASKS:
-                conn.execute(
-                    "INSERT INTO tasks (title, done) VALUES (?, ?);",
-                    (task["title"], 1 if task["done"] else 0),
+                cursor.execute(
+                    "INSERT INTO tasks (title, done) VALUES (%s, %s);",
+                    (task["title"], task["done"]),
                 )
+    conn.commit()
     conn.close()
 
 def reset_db():
     conn = get_db()
-    with conn:
-        conn.execute("DELETE FROM tasks;")
-        conn.execute("DELETE FROM sqlite_sequence WHERE name='tasks';")
+    with conn.cursor() as cursor:
+        cursor.execute("TRUNCATE TABLE tasks RESTART IDENTITY;")
         for task in SEED_TASKS:
-            conn.execute(
-                "INSERT INTO tasks (title, done) VALUES (?, ?);",
-                (task["title"], 1 if task["done"] else 0),
+            cursor.execute(
+                "INSERT INTO tasks (title, done) VALUES (%s, %s);",
+                (task["title"], task["done"]),
             )
+    conn.commit()
     conn.close()
 
 # Initialize DB on module import

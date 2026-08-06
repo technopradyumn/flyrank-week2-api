@@ -81,9 +81,9 @@ class TestTaskAPI(unittest.TestCase):
         # Simulate app restart by re-initializing DB table without resetting seed
         # Querying direct from database proves data persistence
         conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks WHERE id = ?", (created_id,))
-        row = cursor.fetchone()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM tasks WHERE id = %s;", (created_id,))
+            row = cursor.fetchone()
         conn.close()
         self.assertIsNotNone(row)
         self.assertEqual(row["title"], "Persistent Task")
