@@ -11,3 +11,5 @@ tasks.db
 tasks.db-journal
 tasks.db-wal
 tasks.db-shm
+.env
+
