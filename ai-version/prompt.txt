@@ -1,15 +1,14 @@
-Build a REST API in Python using FastAPI. It should manage a to-do list stored only in-memory (a Python list — no database).
+Migrate a FastAPI task REST API from in-memory list storage to an SQLite database (tasks.db).
 
-The API must have exactly these five endpoints:
+The API must expose:
+1. GET /tasks - List all tasks from SQLite.
+2. GET /tasks/{id} - Get one task from SQLite by integer id (return 404 {"error": "Task {id} not found"} if missing).
+3. POST /tasks - Create task in SQLite with title (return 201 Created with task, 400 {"error": "title is required and cannot be empty"} if missing/empty title).
+4. PUT /tasks/{id} - Update task title/done in SQLite (return 200 OK with updated task, 404 if missing, 400 if body missing both title and done).
+5. DELETE /tasks/{id} - Delete task from SQLite (return 204 No Content with empty body, 404 if missing).
 
-1. GET /tasks — returns all tasks as a JSON array
-2. GET /tasks/{id} — returns one task by integer id; if not found return status 404 with body {"error": "Task {id} not found"}
-3. POST /tasks — creates a task from a JSON body with a required 'title' field. Returns 201 on success with the created task. If title is missing or empty return 400 with body {"error": "title is required and cannot be empty"}
-4. PUT /tasks/{id} — updates title and/or done field from the request body. Returns 200 with the updated task. Return 404 for unknown id (same format). Return 400 if the body contains neither title nor done.
-5. DELETE /tasks/{id} — removes the task. Returns 204 No Content with an empty body (not null, not {}, just no content). Returns 404 for unknown id.
-
-Each task object has exactly three fields: id (sequential integer starting at 1), title (string), done (boolean, default false).
-
-Pre-fill the in-memory list with 3 example tasks.
-
-Use Pydantic models for request bodies. All error responses must use the JSON shape {"error": "..."} — do NOT use FastAPI's default {"detail": "..."} format.
+Requirements:
+- SQLite table tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT 0).
+- Automatically create tasks.db and tasks table if missing on server startup.
+- Seed 3 example tasks ONLY when table row count is 0 (count before inserting so tasks don't multiply on server restart).
+- Always use parameterized SQL placeholders (?) for queries to prevent SQL injection.
